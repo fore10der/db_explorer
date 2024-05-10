@@ -2,6 +2,8 @@ package main
 
 import (
 	"net/http"
+
+	"db_explorer/utils"
 )
 
 func (e *DbExplorer) handleRoot(w http.ResponseWriter, r *http.Request) {
@@ -20,7 +22,13 @@ func (e *DbExplorer) handleRoot(w http.ResponseWriter, r *http.Request) {
 func (e *DbExplorer) handleTableCollection(w http.ResponseWriter, r *http.Request, table string) {
 	switch r.Method {
 	case http.MethodGet:
-		records, err := getTableRecords(e, table)
+		limit, offset, err := utils.GetLimitOffset(r)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		records, err := getTableRecords(e, table, limit, offset)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return

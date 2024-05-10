@@ -1,9 +1,8 @@
 package main
 
 import (
-	"fmt"
+	"db_explorer/utils"
 	"sort"
-	"strings"
 )
 
 func getTables(e *DbExplorer) []string {
@@ -16,13 +15,13 @@ func getTables(e *DbExplorer) []string {
 	return tables
 }
 
-func getTableRecords(e *DbExplorer, table string) ([]map[string]any, error) {
-	safeTableName, err := getSafeTableName(e, table)
+func getTableRecords(e *DbExplorer, table string, limit, offset int) ([]map[string]any, error) {
+	safeTableName, err := utils.GetSafeTableName(e.tables, table)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := e.db.Query("SELECT * FROM " + safeTableName)
+	rows, err := e.db.Query("SELECT * FROM "+safeTableName+" LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -66,10 +65,13 @@ func getTableRecords(e *DbExplorer, table string) ([]map[string]any, error) {
 	return records, nil
 }
 
-func getSafeTableName(e *DbExplorer, table string) (string, error) {
-	if _, ok := e.tables[table]; !ok {
-		return "", fmt.Errorf("unknown table")
+func getTableRecord(e *DbExplorer, table string, id int) (map[string]any, error) {
+	safeTableName, err := utils.GetSafeTableName(e.tables, table)
+	if err != nil {
+		return nil, err
 	}
 
-	return "`" + strings.ReplaceAll(table, "`", "``") + "`", nil
+	e.db.QueryRow("SELECT * FROM "+safeTableName+" WHERE id = ?", id)
+
+	return map[string]any{}, nil
 }
