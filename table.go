@@ -2,6 +2,7 @@ package main
 
 import (
 	"db_explorer/utils"
+	"fmt"
 	"sort"
 )
 
@@ -60,22 +61,25 @@ func getTableRecord(e *DbExplorer, table string, id int64) (map[string]any, erro
 		return nil, err
 	}
 
-	metaRows, err := e.db.Query("SELECT * FROM " + safeTableName + " LIMIT 1")
+	rows, err := e.db.Query("SELECT * FROM "+safeTableName+" WHERE id = ? LIMIT 1", id)
 	if err != nil {
 		return nil, err
 	}
-	defer metaRows.Close()
+	defer rows.Close()
 
-	columns, err := metaRows.Columns()
-	if err != nil {
-		return nil, err
-	}
-
-	columnTypes, err := metaRows.ColumnTypes()
+	columns, err := rows.Columns()
 	if err != nil {
 		return nil, err
 	}
 
-	row := e.db.QueryRow("SELECT * FROM "+safeTableName+" WHERE id = ?", id)
-	return utils.ScanRowToRecord(row, columns, columnTypes)
+	columnTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, err
+	}
+
+	if !rows.Next() {
+		return nil, fmt.Errorf("record not found")
+	}
+
+	return utils.ScanRowToRecord(rows, columns, columnTypes)
 }

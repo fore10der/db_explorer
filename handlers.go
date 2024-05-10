@@ -51,7 +51,7 @@ func (e *DbExplorer) handleTableRecord(w http.ResponseWriter, r *http.Request, t
 		// TODO: get record by id
 		record, err := getTableRecord(e, table, id)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeError(w, http.StatusNotFound, err.Error())
 			return
 		}
 		writeResponse(w, http.StatusOK, map[string]interface{}{
