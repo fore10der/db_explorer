@@ -4,6 +4,7 @@ import (
 	"db_explorer/utils"
 	"fmt"
 	"sort"
+	"strings"
 )
 
 func getTables(e *DbExplorer) []string {
@@ -82,4 +83,29 @@ func getTableRecord(e *DbExplorer, table string, id int64) (map[string]any, erro
 	}
 
 	return utils.ScanRowToRecord(rows, columns, columnTypes)
+}
+
+func deleteTableRecord(e *DbExplorer, table string, id int64) (int64, error) {
+	safeTableName, err := utils.GetSafeTableName(e.tables, table)
+	if err != nil {
+		return 0, err
+	}
+
+	primaryKey, err := utils.GetPrimaryKeyColumn(e.db, safeTableName)
+	if err != nil {
+		return 0, err
+	}
+
+	safePrimaryKey := "`" + strings.ReplaceAll(primaryKey, "`", "``") + "`"
+	result, err := e.db.Exec("DELETE FROM "+safeTableName+" WHERE "+safePrimaryKey+" = ?", id)
+	if err != nil {
+		return 0, err
+	}
+
+	deleted, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	return deleted, nil
 }

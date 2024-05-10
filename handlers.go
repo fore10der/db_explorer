@@ -61,8 +61,14 @@ func (e *DbExplorer) handleTableRecord(w http.ResponseWriter, r *http.Request, t
 		// TODO: update record by id
 		writeError(w, http.StatusNotImplemented, "method POST for record is not implemented yet")
 	case http.MethodDelete:
-		// TODO: delete record by id
-		writeError(w, http.StatusNotImplemented, "method DELETE for record is not implemented yet")
+		deleted, err := deleteTableRecord(e, table, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeResponse(w, http.StatusOK, map[string]any{
+			"deleted": deleted,
+		})
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "bad method")
 	}
