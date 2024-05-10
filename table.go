@@ -32,27 +32,16 @@ func getTableRecords(e *DbExplorer, table string, limit, offset int) ([]map[stri
 		return nil, err
 	}
 
+	columnTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, err
+	}
+
 	records := make([]map[string]any, 0)
 	for rows.Next() {
-		values := make([]any, len(columns))
-		dest := make([]any, len(columns))
-		for i := range values {
-			dest[i] = &values[i]
-		}
-
-		if err := rows.Scan(dest...); err != nil {
+		record, err := utils.ScanRowToRecord(rows, columns, columnTypes)
+		if err != nil {
 			return nil, err
-		}
-
-		record := make(map[string]any, len(columns))
-		for i, col := range columns {
-			value := values[i]
-			switch typedValue := value.(type) {
-			case []byte:
-				record[col] = string(typedValue)
-			default:
-				record[col] = typedValue
-			}
 		}
 
 		records = append(records, record)
@@ -65,13 +54,28 @@ func getTableRecords(e *DbExplorer, table string, limit, offset int) ([]map[stri
 	return records, nil
 }
 
-func getTableRecord(e *DbExplorer, table string, id int) (map[string]any, error) {
+func getTableRecord(e *DbExplorer, table string, id int64) (map[string]any, error) {
 	safeTableName, err := utils.GetSafeTableName(e.tables, table)
 	if err != nil {
 		return nil, err
 	}
 
-	e.db.QueryRow("SELECT * FROM "+safeTableName+" WHERE id = ?", id)
+	metaRows, err := e.db.Query("SELECT * FROM " + safeTableName + " LIMIT 1")
+	if err != nil {
+		return nil, err
+	}
+	defer metaRows.Close()
 
-	return map[string]any{}, nil
+	columns, err := metaRows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	columnTypes, err := metaRows.ColumnTypes()
+	if err != nil {
+		return nil, err
+	}
+
+	row := e.db.QueryRow("SELECT * FROM "+safeTableName+" WHERE id = ?", id)
+	return utils.ScanRowToRecord(row, columns, columnTypes)
 }

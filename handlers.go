@@ -33,7 +33,9 @@ func (e *DbExplorer) handleTableCollection(w http.ResponseWriter, r *http.Reques
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeResponse(w, http.StatusOK, records)
+		writeResponse(w, http.StatusOK, map[string]interface{}{
+			"records": records,
+		})
 	case http.MethodPut:
 		// TODO: create record in table
 		writeError(w, http.StatusNotImplemented, "method PUT for table is not implemented yet")
@@ -43,13 +45,18 @@ func (e *DbExplorer) handleTableCollection(w http.ResponseWriter, r *http.Reques
 }
 
 func (e *DbExplorer) handleTableRecord(w http.ResponseWriter, r *http.Request, table string, id int64) {
-	_ = table
-	_ = id
 
 	switch r.Method {
 	case http.MethodGet:
 		// TODO: get record by id
-		writeError(w, http.StatusNotImplemented, "method GET for record is not implemented yet")
+		record, err := getTableRecord(e, table, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeResponse(w, http.StatusOK, map[string]interface{}{
+			"record": record,
+		})
 	case http.MethodPost:
 		// TODO: update record by id
 		writeError(w, http.StatusNotImplemented, "method POST for record is not implemented yet")
