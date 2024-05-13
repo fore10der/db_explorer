@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"db_explorer/utils"
@@ -37,8 +38,21 @@ func (e *DbExplorer) handleTableCollection(w http.ResponseWriter, r *http.Reques
 			"records": records,
 		})
 	case http.MethodPut:
-		// TODO: create record in table
-		writeError(w, http.StatusNotImplemented, "method PUT for table is not implemented yet")
+		data := make(map[string]any)
+		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+			writeError(w, http.StatusBadRequest, "bad request")
+			return
+		}
+
+		id, err := insertTableRecord(e, table, data)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		writeResponse(w, http.StatusOK, map[string]any{
+			"id": id,
+		})
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "bad method")
 	}

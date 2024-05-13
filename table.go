@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"db_explorer/utils"
 	"fmt"
 	"sort"
@@ -108,4 +109,55 @@ func deleteTableRecord(e *DbExplorer, table string, id int64) (int64, error) {
 	}
 
 	return deleted, nil
+}
+
+func insertTableRecord(e *DbExplorer, table string, data map[string]any) (int64, error) {
+	safeTableName, err := utils.GetSafeTableName(e.tables, table)
+	if err != nil {
+		return 0, err
+	}
+
+	rows, err := e.db.Query("SHOW FULL COLUMNS FROM " + safeTableName)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	fmt.Println(data)
+	fmt.Printf("[insertTableRecord] table=%s fields info:\n", table)
+	for rows.Next() {
+		var (
+			field      string
+			typeName   string
+			collation  sql.NullString
+			null       string
+			key        string
+			def        sql.NullString
+			extra      string
+			privileges string
+			comment    string
+		)
+
+		if err := rows.Scan(&field, &typeName, &collation, &null, &key, &def, &extra, &privileges, &comment); err != nil {
+			return 0, err
+		}
+
+		required := strings.ToUpper(null) == "NO" && !strings.Contains(strings.ToLower(extra), "auto_increment") && !def.Valid
+		fmt.Printf("  field=%s type=%s nullable=%s key=%s default=%v extra=%s required=%v\n",
+			field,
+			typeName,
+			null,
+			key,
+			def.Valid,
+			extra,
+			required,
+		)
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	_ = data // пока не используем, добавим дальше на следующем шаге
+	return 0, nil
 }
