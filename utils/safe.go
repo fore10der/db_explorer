@@ -6,12 +6,40 @@ import (
 	"strings"
 )
 
+type TableFieldInfo struct {
+	Name     string
+	TypeName string
+	Required bool
+}
+
 func GetSafeTableName(tables map[string]struct{}, table string) (string, error) {
 	if _, ok := tables[table]; !ok {
 		return "", fmt.Errorf("unknown table")
 	}
 
 	return "`" + strings.ReplaceAll(table, "`", "``") + "`", nil
+}
+
+func GetInsertFieldsAndValues(data map[string]any, fields []TableFieldInfo, checkRequired bool) ([]string, []any, error) {
+	columns := make([]string, 0, len(fields))
+	values := make([]any, 0, len(fields))
+
+	for _, field := range fields {
+		value, exists := data[field.Name]
+		if !exists {
+			if checkRequired && field.Required {
+				return nil, nil, fmt.Errorf("field %s is required", field.Name)
+			}
+			continue
+		}
+
+		// неизвестные поля автоматически игнорируются, потому что
+		// идём только по схеме таблицы
+		columns = append(columns, field.Name)
+		values = append(values, value)
+	}
+
+	return columns, values, nil
 }
 
 func GetPrimaryKeyColumn(db *sql.DB, safeTableName string) (string, error) {

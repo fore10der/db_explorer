@@ -125,6 +125,8 @@ func insertTableRecord(e *DbExplorer, table string, data map[string]any) (int64,
 
 	fmt.Println(data)
 	fmt.Printf("[insertTableRecord] table=%s fields info:\n", table)
+
+	fields := make([]utils.TableFieldInfo, 0)
 	for rows.Next() {
 		var (
 			field      string
@@ -152,12 +154,25 @@ func insertTableRecord(e *DbExplorer, table string, data map[string]any) (int64,
 			extra,
 			required,
 		)
+
+		fields = append(fields, utils.TableFieldInfo{
+			Name:     field,
+			TypeName: typeName,
+			Required: required,
+		})
 	}
 
 	if err := rows.Err(); err != nil {
 		return 0, err
 	}
 
-	_ = data // пока не используем, добавим дальше на следующем шаге
+	columns, values, err := utils.GetInsertFieldsAndValues(data, fields, true)
+	if err != nil {
+		return 0, err
+	}
+
+	fmt.Printf("[insertTableRecord] columns=%v\n", columns)
+	fmt.Printf("[insertTableRecord] values=%v\n", values)
+
 	return 0, nil
 }
