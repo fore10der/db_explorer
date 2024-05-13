@@ -112,46 +112,8 @@ func deleteTableRecord(e *DbExplorer, table string, id int64) (int64, error) {
 }
 
 func insertTableRecord(e *DbExplorer, table string, data map[string]any) (int64, error) {
-	safeTableName, err := utils.GetSafeTableName(e.tables, table)
+	safeTableName, fields, err := getSafeTableNameAndFields(e, table)
 	if err != nil {
-		return 0, err
-	}
-
-	rows, err := e.db.Query("SHOW FULL COLUMNS FROM " + safeTableName)
-	if err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-
-	fields := make([]utils.TableFieldInfo, 0)
-	for rows.Next() {
-		var (
-			field      string
-			typeName   string
-			collation  sql.NullString
-			null       string
-			key        string
-			def        sql.NullString
-			extra      string
-			privileges string
-			comment    string
-		)
-
-		if err := rows.Scan(&field, &typeName, &collation, &null, &key, &def, &extra, &privileges, &comment); err != nil {
-			return 0, err
-		}
-
-		required := strings.ToUpper(null) == "NO" && !strings.Contains(strings.ToLower(extra), "auto_increment") && !def.Valid
-
-		fields = append(fields, utils.TableFieldInfo{
-			Name:      field,
-			TypeName:  typeName,
-			Required:  required,
-			IsPrimary: key == "PRI",
-		})
-	}
-
-	if err := rows.Err(); err != nil {
 		return 0, err
 	}
 
@@ -182,4 +144,88 @@ func insertTableRecord(e *DbExplorer, table string, data map[string]any) (int64,
 	}
 
 	return id, nil
+}
+
+func updateTableRecord(e *DbExplorer, table string, id int64, data map[string]any) error {
+	safeTableName, fields, err := getSafeTableNameAndFields(e, table)
+	if err != nil {
+		return err
+	}
+
+	columns, values, err := utils.GetDatabaseFieldsAndValues(data, fields, false)
+	if err != nil {
+		return err
+	}
+
+	if len(columns) == 0 {
+		return nil
+	}
+
+	primaryKey, err := utils.GetPrimaryKeyColumn(e.db, safeTableName)
+	if err != nil {
+		return err
+	}
+
+	safePrimaryKey := "`" + strings.ReplaceAll(primaryKey, "`", "``") + "`"
+	setParts := make([]string, 0, len(columns))
+	for i, col := range columns {
+		safeCol := "`" + strings.ReplaceAll(col, "`", "``") + "`"
+		setParts = append(setParts, safeCol+" = "+values[i])
+	}
+
+	query := "UPDATE " + safeTableName + " SET " + strings.Join(setParts, ", ") + " WHERE " + safePrimaryKey + " = ?"
+
+	_, err = e.db.Exec(query, id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getSafeTableNameAndFields(e *DbExplorer, table string) (string, []utils.TableFieldInfo, error) {
+	safeTableName, err := utils.GetSafeTableName(e.tables, table)
+	if err != nil {
+		return "", nil, err
+	}
+
+	rows, err := e.db.Query("SHOW FULL COLUMNS FROM " + safeTableName)
+	if err != nil {
+		return "", nil, err
+	}
+	defer rows.Close()
+
+	fields := make([]utils.TableFieldInfo, 0)
+	for rows.Next() {
+		var (
+			field      string
+			typeName   string
+			collation  sql.NullString
+			null       string
+			key        string
+			def        sql.NullString
+			extra      string
+			privileges string
+			comment    string
+		)
+
+		if err := rows.Scan(&field, &typeName, &collation, &null, &key, &def, &extra, &privileges, &comment); err != nil {
+			return "", nil, err
+		}
+
+		required := strings.ToUpper(null) == "NO" && !strings.Contains(strings.ToLower(extra), "auto_increment") && !def.Valid
+
+		fields = append(fields, utils.TableFieldInfo{
+			Name:      field,
+			TypeName:  typeName,
+			Required:  required,
+			IsPrimary: key == "PRI",
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return "", nil, err
+	}
+
+	return safeTableName, fields, nil
 }

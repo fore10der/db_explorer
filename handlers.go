@@ -72,8 +72,27 @@ func (e *DbExplorer) handleTableRecord(w http.ResponseWriter, r *http.Request, t
 			"record": record,
 		})
 	case http.MethodPost:
-		// TODO: update record by id
-		writeError(w, http.StatusNotImplemented, "method POST for record is not implemented yet")
+		_, err := getTableRecord(e, table, id)
+		if err != nil {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+
+		data := make(map[string]any)
+		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+			writeError(w, http.StatusBadRequest, "bad request")
+			return
+		}
+
+		err = updateTableRecord(e, table, id, data)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		writeResponse(w, http.StatusOK, map[string]interface{}{
+			"updated": 1,
+		})
 	case http.MethodDelete:
 		deleted, err := deleteTableRecord(e, table, id)
 		if err != nil {
