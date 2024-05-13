@@ -3,13 +3,15 @@ package utils
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
 type TableFieldInfo struct {
-	Name     string
-	TypeName string
-	Required bool
+	Name      string
+	TypeName  string
+	Required  bool
+	IsPrimary bool
 }
 
 func GetSafeTableName(tables map[string]struct{}, table string) (string, error) {
@@ -20,9 +22,9 @@ func GetSafeTableName(tables map[string]struct{}, table string) (string, error) 
 	return "`" + strings.ReplaceAll(table, "`", "``") + "`", nil
 }
 
-func GetInsertFieldsAndValues(data map[string]any, fields []TableFieldInfo, checkRequired bool) ([]string, []any, error) {
+func GetInsertFieldsAndValues(data map[string]any, fields []TableFieldInfo, checkRequired bool) ([]string, []string, error) {
 	columns := make([]string, 0, len(fields))
-	values := make([]any, 0, len(fields))
+	values := make([]string, 0, len(fields))
 
 	for _, field := range fields {
 		value, exists := data[field.Name]
@@ -33,13 +35,65 @@ func GetInsertFieldsAndValues(data map[string]any, fields []TableFieldInfo, chec
 			continue
 		}
 
+		if field.IsPrimary {
+			continue
+		}
+
 		// неизвестные поля автоматически игнорируются, потому что
 		// идём только по схеме таблицы
 		columns = append(columns, field.Name)
-		values = append(values, value)
+		values = append(values, formatSQLValue(value))
 	}
 
 	return columns, values, nil
+}
+
+func formatSQLValue(value any) string {
+	if value == nil {
+		return "NULL"
+	}
+
+	switch v := value.(type) {
+	case string:
+		return "'" + escapeSQLString(v) + "'"
+	case []byte:
+		return "'" + escapeSQLString(string(v)) + "'"
+	case bool:
+		if v {
+			return "TRUE"
+		}
+		return "FALSE"
+	case int:
+		return strconv.Itoa(v)
+	case int8:
+		return strconv.FormatInt(int64(v), 10)
+	case int16:
+		return strconv.FormatInt(int64(v), 10)
+	case int32:
+		return strconv.FormatInt(int64(v), 10)
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case uint:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint8:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint16:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint32:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint64:
+		return strconv.FormatUint(v, 10)
+	case float32:
+		return strconv.FormatFloat(float64(v), 'f', -1, 64)
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	default:
+		return "'" + escapeSQLString(fmt.Sprintf("%v", v)) + "'"
+	}
+}
+
+func escapeSQLString(s string) string {
+	return strings.ReplaceAll(s, "'", "''")
 }
 
 func GetPrimaryKeyColumn(db *sql.DB, safeTableName string) (string, error) {

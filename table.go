@@ -123,9 +123,6 @@ func insertTableRecord(e *DbExplorer, table string, data map[string]any) (int64,
 	}
 	defer rows.Close()
 
-	fmt.Println(data)
-	fmt.Printf("[insertTableRecord] table=%s fields info:\n", table)
-
 	fields := make([]utils.TableFieldInfo, 0)
 	for rows.Next() {
 		var (
@@ -145,20 +142,12 @@ func insertTableRecord(e *DbExplorer, table string, data map[string]any) (int64,
 		}
 
 		required := strings.ToUpper(null) == "NO" && !strings.Contains(strings.ToLower(extra), "auto_increment") && !def.Valid
-		fmt.Printf("  field=%s type=%s nullable=%s key=%s default=%v extra=%s required=%v\n",
-			field,
-			typeName,
-			null,
-			key,
-			def.Valid,
-			extra,
-			required,
-		)
 
 		fields = append(fields, utils.TableFieldInfo{
-			Name:     field,
-			TypeName: typeName,
-			Required: required,
+			Name:      field,
+			TypeName:  typeName,
+			Required:  required,
+			IsPrimary: key == "PRI",
 		})
 	}
 
@@ -171,8 +160,26 @@ func insertTableRecord(e *DbExplorer, table string, data map[string]any) (int64,
 		return 0, err
 	}
 
-	fmt.Printf("[insertTableRecord] columns=%v\n", columns)
-	fmt.Printf("[insertTableRecord] values=%v\n", values)
+	query := ""
+	if len(columns) == 0 {
+		query = "INSERT INTO " + safeTableName + " () VALUES ()"
+	} else {
+		safeColumns := make([]string, 0, len(columns))
+		for _, col := range columns {
+			safeColumns = append(safeColumns, "`"+strings.ReplaceAll(col, "`", "``")+"`")
+		}
+		query = "INSERT INTO " + safeTableName + " (" + strings.Join(safeColumns, ", ") + ") VALUES (" + strings.Join(values, ", ") + ")"
+	}
 
-	return 0, nil
+	result, err := e.db.Exec(query)
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
 }
