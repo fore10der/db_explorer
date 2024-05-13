@@ -63,7 +63,13 @@ func getTableRecord(e *DbExplorer, table string, id int64) (map[string]any, erro
 		return nil, err
 	}
 
-	rows, err := e.db.Query("SELECT * FROM "+safeTableName+" WHERE id = ? LIMIT 1", id)
+	primaryKey, err := utils.GetPrimaryKeyColumn(e.db, safeTableName)
+	if err != nil {
+		return nil, err
+	}
+
+	safePrimaryKey := "`" + strings.ReplaceAll(primaryKey, "`", "``") + "`"
+	rows, err := e.db.Query("SELECT * FROM "+safeTableName+" WHERE "+safePrimaryKey+" = ? LIMIT 1", id)
 	if err != nil {
 		return nil, err
 	}
@@ -150,6 +156,14 @@ func updateTableRecord(e *DbExplorer, table string, id int64, data map[string]an
 	safeTableName, fields, err := getSafeTableNameAndFields(e, table)
 	if err != nil {
 		return err
+	}
+
+	for _, field := range fields {
+		if field.IsPrimary {
+			if _, exists := data[field.Name]; exists {
+				return fmt.Errorf("field %s have invalid type", field.Name)
+			}
+		}
 	}
 
 	columns, values, err := utils.GetDatabaseFieldsAndValues(data, fields, false)

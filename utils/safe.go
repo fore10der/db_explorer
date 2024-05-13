@@ -26,6 +26,7 @@ func GetSafeTableName(tables map[string]struct{}, table string) (string, error) 
 func GetDatabaseFieldsAndValues(data map[string]any, fields []TableFieldInfo, checkRequired bool) ([]string, []string, error) {
 	columns := make([]string, 0, len(fields))
 	values := make([]string, 0, len(fields))
+	fmt.Println(data)
 
 	for _, field := range fields {
 		value, exists := data[field.Name]
@@ -56,7 +57,7 @@ func GetDatabaseFieldsAndValues(data map[string]any, fields []TableFieldInfo, ch
 func validateFieldValueByDBType(value any, field TableFieldInfo) error {
 	if value == nil {
 		if field.Required {
-			return fmt.Errorf("field %s must not be null", field.Name)
+			return fmt.Errorf("field %s have invalid type", field.Name)
 		}
 		return nil
 	}
@@ -65,15 +66,15 @@ func validateFieldValueByDBType(value any, field TableFieldInfo) error {
 	switch expectedKind {
 	case "number":
 		if !isNumberValue(value) {
-			return fmt.Errorf("field %s expects number, got %T", field.Name, value)
+			return fmt.Errorf("field %s have invalid type", field.Name)
 		}
 	case "string":
 		if !isStringValue(value) {
-			return fmt.Errorf("field %s expects string, got %T", field.Name, value)
+			return fmt.Errorf("field %s have invalid type", field.Name)
 		}
 	case "boolean":
 		if !isBooleanValue(value) {
-			return fmt.Errorf("field %s expects boolean, got %T", field.Name, value)
+			return fmt.Errorf("field %s have invalid type", field.Name)
 		}
 	}
 
