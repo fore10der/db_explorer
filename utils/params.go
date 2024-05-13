@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 )
@@ -12,18 +11,16 @@ func GetLimitOffset(r *http.Request) (int, int, error) {
 
 	if r.URL.Query().Get("limit") != "" {
 		parsedLimit, err := strconv.Atoi(r.URL.Query().Get("limit"))
-		if err != nil {
-			return 0, 0, fmt.Errorf("invalid limit")
+		if err == nil {
+			limit = parsedLimit
 		}
-		limit = parsedLimit
 	}
 
 	if r.URL.Query().Get("offset") != "" {
 		parsedOffset, err := strconv.Atoi(r.URL.Query().Get("offset"))
-		if err != nil {
-			return 0, 0, fmt.Errorf("invalid offset")
+		if err == nil {
+			offset = parsedOffset
 		}
-		offset = parsedOffset
 	}
 
 	return limit, offset, nil

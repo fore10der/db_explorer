@@ -8,6 +8,15 @@ import (
 	"strings"
 )
 
+func findTablePrimaryKeyField(fields []utils.TableFieldInfo) (utils.TableFieldInfo, error) {
+	for _, field := range fields {
+		if field.IsPrimary {
+			return field, nil
+		}
+	}
+	return utils.TableFieldInfo{}, fmt.Errorf("no primary key field found")
+}
+
 func getTables(e *DbExplorer) []string {
 	tables := make([]string, 0, len(e.tables))
 	for table := range e.tables {
@@ -117,15 +126,21 @@ func deleteTableRecord(e *DbExplorer, table string, id int64) (int64, error) {
 	return deleted, nil
 }
 
-func insertTableRecord(e *DbExplorer, table string, data map[string]any) (int64, error) {
+func insertTableRecord(e *DbExplorer, table string, data map[string]any) (string, int64, error) {
 	safeTableName, fields, err := getSafeTableNameAndFields(e, table)
 	if err != nil {
-		return 0, err
+		return "", 0, err
 	}
+
+	primaryKeyField, err := findTablePrimaryKeyField(fields)
+	if err != nil {
+		return "", 0, err
+	}
+	
 
 	columns, values, err := utils.GetDatabaseFieldsAndValues(data, fields, true)
 	if err != nil {
-		return 0, err
+		return "", 0, err
 	}
 
 	query := ""
@@ -141,15 +156,15 @@ func insertTableRecord(e *DbExplorer, table string, data map[string]any) (int64,
 
 	result, err := e.db.Exec(query)
 	if err != nil {
-		return 0, err
+		return "", 0, err
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return 0, err
+		return "", 0, err
 	}
 
-	return id, nil
+	return primaryKeyField.Name, id, nil
 }
 
 func updateTableRecord(e *DbExplorer, table string, id int64, data map[string]any) error {

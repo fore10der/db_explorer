@@ -44,14 +44,14 @@ func (e *DbExplorer) handleTableCollection(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		id, err := insertTableRecord(e, table, data)
+		key, id, err := insertTableRecord(e, table, data)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
 		writeResponse(w, http.StatusOK, map[string]any{
-			"id": id,
+			key: id,
 		})
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "bad method")

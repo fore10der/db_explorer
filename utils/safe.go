@@ -26,18 +26,19 @@ func GetSafeTableName(tables map[string]struct{}, table string) (string, error) 
 func GetDatabaseFieldsAndValues(data map[string]any, fields []TableFieldInfo, checkRequired bool) ([]string, []string, error) {
 	columns := make([]string, 0, len(fields))
 	values := make([]string, 0, len(fields))
-	fmt.Println(data)
 
 	for _, field := range fields {
-		value, exists := data[field.Name]
-		if !exists {
-			if checkRequired && field.Required {
-				return nil, nil, fmt.Errorf("field %s is required", field.Name)
-			}
+		if field.IsPrimary {
 			continue
 		}
 
-		if field.IsPrimary {
+		value, exists := data[field.Name]
+		if !exists {
+			if checkRequired {
+				defaultValue := getDefaultValueByField(field)
+				columns = append(columns, field.Name)
+				values = append(values, formatSQLValue(defaultValue))
+			}
 			continue
 		}
 
@@ -52,6 +53,21 @@ func GetDatabaseFieldsAndValues(data map[string]any, fields []TableFieldInfo, ch
 	}
 
 	return columns, values, nil
+}
+
+func getDefaultValueByField(field TableFieldInfo) any {
+	if !field.Required {
+		return nil
+	}
+
+	switch getExpectedValueKind(field.TypeName) {
+	case "number":
+		return 0
+	case "boolean":
+		return false
+	default:
+		return ""
+	}
 }
 
 func validateFieldValueByDBType(value any, field TableFieldInfo) error {
