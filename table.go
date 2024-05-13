@@ -155,7 +155,7 @@ func insertTableRecord(e *DbExplorer, table string, data map[string]any) (int64,
 		return 0, err
 	}
 
-	columns, values, err := utils.GetInsertFieldsAndValues(data, fields, true)
+	columns, values, err := utils.GetDatabaseFieldsAndValues(data, fields, true)
 	if err != nil {
 		return 0, err
 	}

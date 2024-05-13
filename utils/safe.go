@@ -2,6 +2,7 @@ package utils
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -22,7 +23,7 @@ func GetSafeTableName(tables map[string]struct{}, table string) (string, error) 
 	return "`" + strings.ReplaceAll(table, "`", "``") + "`", nil
 }
 
-func GetInsertFieldsAndValues(data map[string]any, fields []TableFieldInfo, checkRequired bool) ([]string, []string, error) {
+func GetDatabaseFieldsAndValues(data map[string]any, fields []TableFieldInfo, checkRequired bool) ([]string, []string, error) {
 	columns := make([]string, 0, len(fields))
 	values := make([]string, 0, len(fields))
 
@@ -39,6 +40,10 @@ func GetInsertFieldsAndValues(data map[string]any, fields []TableFieldInfo, chec
 			continue
 		}
 
+		if err := validateFieldValueByDBType(value, field); err != nil {
+			return nil, nil, err
+		}
+
 		// неизвестные поля автоматически игнорируются, потому что
 		// идём только по схеме таблицы
 		columns = append(columns, field.Name)
@@ -46,6 +51,87 @@ func GetInsertFieldsAndValues(data map[string]any, fields []TableFieldInfo, chec
 	}
 
 	return columns, values, nil
+}
+
+func validateFieldValueByDBType(value any, field TableFieldInfo) error {
+	if value == nil {
+		if field.Required {
+			return fmt.Errorf("field %s must not be null", field.Name)
+		}
+		return nil
+	}
+
+	expectedKind := getExpectedValueKind(field.TypeName)
+	switch expectedKind {
+	case "number":
+		if !isNumberValue(value) {
+			return fmt.Errorf("field %s expects number, got %T", field.Name, value)
+		}
+	case "string":
+		if !isStringValue(value) {
+			return fmt.Errorf("field %s expects string, got %T", field.Name, value)
+		}
+	case "boolean":
+		if !isBooleanValue(value) {
+			return fmt.Errorf("field %s expects boolean, got %T", field.Name, value)
+		}
+	}
+
+	return nil
+}
+
+func getExpectedValueKind(typeName string) string {
+	normalized := strings.ToLower(strings.TrimSpace(typeName))
+	compact := strings.ReplaceAll(normalized, " ", "")
+
+	if strings.HasPrefix(compact, "bool") || strings.HasPrefix(compact, "boolean") || strings.HasPrefix(compact, "tinyint(1)") || strings.HasPrefix(compact, "bit(1)") {
+		return "boolean"
+	}
+
+	base := normalized
+	if idx := strings.Index(base, "("); idx != -1 {
+		base = base[:idx]
+	}
+	if idx := strings.Index(base, " "); idx != -1 {
+		base = base[:idx]
+	}
+
+	switch base {
+	case "int", "integer", "tinyint", "smallint", "mediumint", "bigint", "decimal", "dec", "numeric", "fixed", "float", "double", "real", "bit":
+		return "number"
+	case "char", "varchar", "text", "tinytext", "mediumtext", "longtext", "enum", "set", "json", "date", "datetime", "timestamp", "time", "year", "binary", "varbinary", "blob", "tinyblob", "mediumblob", "longblob":
+		return "string"
+	default:
+		return "string"
+	}
+}
+
+func isNumberValue(value any) bool {
+	switch v := value.(type) {
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
+		return true
+	case json.Number:
+		_, err := v.Float64()
+		return err == nil
+	default:
+		return false
+	}
+}
+
+func isStringValue(value any) bool {
+	switch value.(type) {
+	case string, []byte:
+		return true
+	default:
+		return false
+	}
+}
+
+func isBooleanValue(value any) bool {
+	_, ok := value.(bool)
+	return ok
 }
 
 func formatSQLValue(value any) string {
